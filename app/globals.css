@@ -1,14 +1,14 @@
 :root {
   color-scheme: light;
   --background: oklch(1 0 0);
-  --surface: oklch(0.972 0.004 70);
-  --surface-strong: oklch(0.935 0.008 70);
-  --ink: oklch(0.205 0.018 60);
-  --muted: oklch(0.43 0.022 60);
-  --border: oklch(0.83 0.012 70);
-  --primary: oklch(0.56 0.15 68);
-  --primary-hover: oklch(0.49 0.145 68);
-  --accent: oklch(0.46 0.10 184);
+  --surface: oklch(0.975 0.004 210);
+  --surface-strong: oklch(0.94 0.008 210);
+  --ink: oklch(0.22 0.012 220);
+  --muted: oklch(0.43 0.018 220);
+  --border: oklch(0.84 0.012 210);
+  --primary: oklch(0.47 0.1 184);
+  --primary-hover: oklch(0.41 0.095 184);
+  --accent: oklch(0.43 0.09 184);
   --danger: oklch(0.49 0.18 28);
   --warning: oklch(0.62 0.15 73);
   --focus: oklch(0.6 0.16 250);
@@ -29,15 +29,19 @@ body {
   background: var(--background);
   color: var(--ink);
   font-family: "Microsoft YaHei", "PingFang SC", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
 button:focus-visible,
 input:focus-visible,
+select:focus-visible,
 a:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
@@ -45,7 +49,7 @@ a:focus-visible {
 
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: 0.48;
 }
 
 h1,
@@ -170,12 +174,12 @@ footer {
   flex-direction: column;
   justify-content: center;
   text-align: center;
-  transition: background 180ms ease-out, border-color 180ms ease-out;
+  transition: background 180ms cubic-bezier(0.22, 1, 0.36, 1), border-color 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .upload-zone[data-dragging="true"] {
   border-color: var(--primary);
-  background: oklch(0.965 0.026 68);
+  background: oklch(0.965 0.025 184);
 }
 
 .upload-zone[data-disabled="true"] {
@@ -208,7 +212,6 @@ footer {
 .text-button,
 .icon-button {
   border-radius: 5px;
-  cursor: pointer;
 }
 
 .primary-action,
@@ -218,6 +221,16 @@ footer {
   gap: 8px;
   justify-content: center;
   font-weight: 700;
+  transition: background 160ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms cubic-bezier(0.22, 1, 0.36, 1), color 160ms cubic-bezier(0.22, 1, 0.36, 1), transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.primary-action:not(:disabled),
+.secondary-action:not(:disabled),
+.text-button:not(:disabled),
+.icon-button:not(:disabled),
+.candidate-list button:not(:disabled),
+.segmented-control button:not(:disabled) {
+  cursor: pointer;
 }
 
 .primary-action {
@@ -240,6 +253,12 @@ footer {
 .secondary-action:hover:not(:disabled),
 .icon-button:hover:not(:disabled) {
   background: var(--surface-strong);
+}
+
+.primary-action:active:not(:disabled),
+.secondary-action:active:not(:disabled),
+.icon-button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .file-error,
@@ -288,12 +307,13 @@ footer {
   color: var(--ink);
   flex: 0 0 44px;
   place-items: center;
+  transition: background 160ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms cubic-bezier(0.22, 1, 0.36, 1), color 160ms cubic-bezier(0.22, 1, 0.36, 1), transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .icon-button[data-active="true"] {
   border-color: var(--primary);
-  background: oklch(0.94 0.04 68);
-  color: oklch(0.36 0.11 68);
+  background: oklch(0.94 0.035 184);
+  color: var(--primary-hover);
 }
 
 .toolbar-divider {
@@ -369,13 +389,18 @@ footer {
 }
 
 .text-button {
-  min-height: 32px;
+  min-height: 36px;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--accent);
   font-size: 0.82rem;
   font-weight: 700;
+  transition: color 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.text-button:hover:not(:disabled) {
+  color: var(--primary-hover);
 }
 
 dl {
@@ -429,7 +454,6 @@ dd {
   display: block;
   height: 100%;
   background: var(--accent);
-  transition: width 180ms ease-out;
 }
 
 .coverage-track span[data-risk="warning"] {
@@ -502,7 +526,6 @@ dd {
   border: 0;
   background: transparent;
   color: var(--accent);
-  cursor: pointer;
   place-items: center;
 }
 
@@ -587,7 +610,11 @@ dd {
   border-radius: 3px;
   background: transparent;
   color: var(--muted);
-  cursor: pointer;
+  transition: background 160ms cubic-bezier(0.22, 1, 0.36, 1), color 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.segmented-control button:hover:not([aria-pressed="true"]) {
+  color: var(--ink);
 }
 
 .segmented-control button[aria-pressed="true"] {
@@ -755,6 +782,22 @@ footer a {
   .brush-control {
     margin-left: 6px;
   }
+
+  .editor-toolbar {
+    overscroll-behavior-x: contain;
+    scrollbar-color: var(--border) transparent;
+    scrollbar-width: thin;
+  }
+
+  .text-button,
+  .candidate-list button {
+    min-height: 44px;
+  }
+
+  .candidate-list button {
+    width: 44px;
+    height: 44px;
+  }
 }
 
 @media (max-width: 560px) {
@@ -802,11 +845,23 @@ footer a {
   }
 
   .segmented-control button {
+    min-height: 44px;
     flex: 1;
     padding: 0 7px;
   }
 
+  .upload-zone {
+    min-height: 470px;
+    padding: 36px 20px;
+  }
+
+  .export-panel select {
+    min-height: 44px;
+  }
+
   footer {
+    min-height: 64px;
+    padding-bottom: env(safe-area-inset-bottom);
     flex-wrap: wrap;
     gap: 10px 20px;
   }

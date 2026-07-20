@@ -410,14 +410,14 @@ export default function ImageEditor({ image, onClear }: Props) {
           </button>
         ))}
         <span className="toolbar-divider" aria-hidden="true" />
+        <button aria-label="适应窗口" className="icon-button" onClick={fitView} title="适应窗口" type="button">
+          <Maximize aria-hidden="true" size={19} />
+        </button>
         <button aria-label="撤销" className="icon-button" disabled={!history.past.length} onClick={undo} title="撤销" type="button">
           <Undo2 aria-hidden="true" size={19} />
         </button>
         <button aria-label="重做" className="icon-button" disabled={!history.future.length} onClick={redo} title="重做" type="button">
           <Redo2 aria-hidden="true" size={19} />
-        </button>
-        <button aria-label="适应窗口" className="icon-button" onClick={fitView} title="适应窗口" type="button">
-          <Maximize aria-hidden="true" size={19} />
         </button>
         <button aria-label="删除选区" className="icon-button" disabled={!selectedId} onClick={deleteSelected} title="删除选区" type="button">
           <Trash2 aria-hidden="true" size={19} />
