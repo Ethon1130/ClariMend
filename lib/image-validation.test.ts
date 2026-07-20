@@ -1,0 +1,34 @@
+import { describe, expect, it } from "vitest";
+import { ImageValidationError, inspectImageHeader } from "./image-validation";
+
+describe("image header inspection", () => {
+  it("reads PNG dimensions and alpha", () => {
+    const bytes = new Uint8Array(33);
+    bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    bytes.set([0x49, 0x48, 0x44, 0x52], 12);
+    new DataView(bytes.buffer).setUint32(16, 800);
+    new DataView(bytes.buffer).setUint32(20, 600);
+    bytes[25] = 6;
+    expect(inspectImageHeader(bytes)).toMatchObject({ format: "png", width: 800, height: 600, hasAlpha: true });
+  });
+
+  it("rejects unknown signatures", () => {
+    expect(() => inspectImageHeader(new Uint8Array([1, 2, 3]))).toThrowError(ImageValidationError);
+  });
+
+  it("reads JPEG EXIF orientation before the frame dimensions", () => {
+    const bytes = new Uint8Array([
+      0xff, 0xd8,
+      0xff, 0xe1, 0x00, 0x22,
+      0x45, 0x78, 0x69, 0x66, 0x00, 0x00,
+      0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00,
+      0x01, 0x00,
+      0x12, 0x01, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00,
+      0xff, 0xc0, 0x00, 0x11, 0x08, 0x02, 0x58, 0x03, 0x20,
+      0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x00, 0x03, 0x11, 0x00,
+      0xff, 0xd9,
+    ]);
+    expect(inspectImageHeader(bytes)).toMatchObject({ format: "jpeg", width: 800, height: 600, orientation: 6 });
+  });
+});

@@ -1,0 +1,9 @@
+node_modules/
+.next/
+coverage/
+public/vendor/opencv/
+.impeccable/
+*.tsbuildinfo
+*.log
+.env*
+!.env.example

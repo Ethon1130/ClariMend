@@ -1,0 +1,39 @@
+{
+  "name": "authorized-image-repair",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "sync-opencv": "node scripts/sync-opencv.mjs",
+    "check:opencv": "node scripts/check-opencv.mjs",
+    "predev": "npm run sync-opencv",
+    "dev": "next dev",
+    "prebuild": "npm run sync-opencv",
+    "build": "next build",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@techstark/opencv-js": "4.11.0-release.1",
+    "konva": "10.2.3",
+    "lucide-react": "0.468.0",
+    "next": "16.2.10",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-konva": "19.2.5"
+  },
+  "devDependencies": {
+    "@testing-library/react": "16.3.2",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.2",
+    "eslint-config-next": "16.2.10",
+    "jsdom": "27.4.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  },
+  "overrides": {
+    "postcss": "8.5.10"
+  }
+}
