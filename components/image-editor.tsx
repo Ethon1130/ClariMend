@@ -389,41 +389,44 @@ export default function ImageEditor({ image, onClear }: Props) {
   return (
     <section className="editor" aria-label={t.editorLabel}>
       <div className="editor-toolbar" role="toolbar" aria-label={t.maskTools}>
-        {(
-          [
-            ["select", MousePointer2, t.tools.select],
-            ["rectangle", SquareDashed, t.tools.rectangle],
-            ["brush", Paintbrush, t.tools.brush],
-            ["eraser", Eraser, t.tools.eraser],
-            ["hand", Hand, t.tools.hand],
-          ] as const
-        ).map(([value, Icon, label]) => (
-          <button
-            aria-label={label}
-            aria-pressed={tool === value}
-            className="icon-button"
-            data-active={tool === value}
-            key={value}
-            onClick={() => setTool(value)}
-            title={label}
-            type="button"
-          >
-            <Icon aria-hidden="true" size={19} />
+        <div className="toolbar-cluster" aria-label={t.toolGroupLabel}>
+          {(
+            [
+              ["select", MousePointer2, t.tools.select],
+              ["rectangle", SquareDashed, t.tools.rectangle],
+              ["brush", Paintbrush, t.tools.brush],
+              ["eraser", Eraser, t.tools.eraser],
+              ["hand", Hand, t.tools.hand],
+            ] as const
+          ).map(([value, Icon, label]) => (
+            <button
+              aria-label={label}
+              aria-pressed={tool === value}
+              className="icon-button"
+              data-active={tool === value}
+              key={value}
+              onClick={() => setTool(value)}
+              title={label}
+              type="button"
+            >
+              <Icon aria-hidden="true" size={19} />
+            </button>
+          ))}
+        </div>
+        <div className="toolbar-cluster" aria-label={t.viewGroupLabel}>
+          <button aria-label={t.fit} className="icon-button" onClick={fitView} title={t.fit} type="button">
+            <Maximize aria-hidden="true" size={19} />
           </button>
-        ))}
-        <span className="toolbar-divider" aria-hidden="true" />
-        <button aria-label={t.fit} className="icon-button" onClick={fitView} title={t.fit} type="button">
-          <Maximize aria-hidden="true" size={19} />
-        </button>
-        <button aria-label={t.undo} className="icon-button" disabled={!history.past.length} onClick={undo} title={t.undo} type="button">
-          <Undo2 aria-hidden="true" size={19} />
-        </button>
-        <button aria-label={t.redo} className="icon-button" disabled={!history.future.length} onClick={redo} title={t.redo} type="button">
-          <Redo2 aria-hidden="true" size={19} />
-        </button>
-        <button aria-label={t.deleteSelection} className="icon-button" disabled={!selectedId} onClick={deleteSelected} title={t.deleteSelection} type="button">
-          <Trash2 aria-hidden="true" size={19} />
-        </button>
+          <button aria-label={t.undo} className="icon-button" disabled={!history.past.length} onClick={undo} title={t.undo} type="button">
+            <Undo2 aria-hidden="true" size={19} />
+          </button>
+          <button aria-label={t.redo} className="icon-button" disabled={!history.future.length} onClick={redo} title={t.redo} type="button">
+            <Redo2 aria-hidden="true" size={19} />
+          </button>
+          <button aria-label={t.deleteSelection} className="icon-button" disabled={!selectedId} onClick={deleteSelected} title={t.deleteSelection} type="button">
+            <Trash2 aria-hidden="true" size={19} />
+          </button>
+        </div>
         <label className="brush-control">
           <span>{t.brush} {brushSize}px</span>
           <input
@@ -439,6 +442,11 @@ export default function ImageEditor({ image, onClear }: Props) {
 
       <div className="editor-body">
         <div className="canvas-viewport" ref={viewportRef}>
+          <div className="canvas-status" aria-live="polite">
+            <span>{t.activeTool}: {t.tools[tool]}</span>
+            <span>{Math.round(view.scale * 100)}%</span>
+            <span>{t.maskCount(shapes.length)}</span>
+          </div>
           {viewport.width > 0 && viewport.height > 0 ? (
             <Stage
               draggable={tool === "hand" || spacePressed}
@@ -613,6 +621,7 @@ export default function ImageEditor({ image, onClear }: Props) {
             </div>
             {risk === "warning" ? <p className="warning-message">{t.warningArea}</p> : null}
             {risk === "blocked" ? <p className="error-message">{t.blockedArea}</p> : null}
+            {!stats.pixels ? <p className="candidate-message">{t.maskEmptyHint}</p> : null}
           </div>
 
           {imageWorker.status !== "idle" && imageWorker.status !== "error" ? (

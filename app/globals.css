@@ -125,6 +125,63 @@ footer {
   border-bottom: 1px solid var(--border);
 }
 
+.workflow-rail {
+  display: flex;
+  min-height: 46px;
+  padding: 0 2px;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.workflow-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.workflow-step {
+  display: inline-flex;
+  min-height: 30px;
+  padding: 0 10px 0 5px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--muted);
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.workflow-step span {
+  display: grid;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: var(--surface-strong);
+  color: var(--muted);
+  font-size: 0.72rem;
+  place-items: center;
+}
+
+.workflow-step[data-active="true"] {
+  border-color: oklch(0.82 0.04 184);
+  background: oklch(0.965 0.025 184);
+  color: var(--primary-hover);
+}
+
+.workflow-step[data-active="true"] span {
+  background: var(--primary);
+  color: oklch(1 0 0);
+}
+
+:root[data-theme="dark"] .workflow-step[data-active="true"] {
+  border-color: oklch(0.43 0.06 184);
+  background: oklch(0.28 0.034 184);
+  color: var(--primary-hover);
+}
+
 .brand-lockup {
   min-width: 0;
   gap: 12px;
@@ -291,6 +348,27 @@ footer {
   line-height: 1.55;
 }
 
+.upload-facts {
+  display: flex;
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.upload-facts li {
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .upload-actions {
   gap: 10px;
 }
@@ -385,6 +463,16 @@ footer {
   overflow-x: auto;
 }
 
+.toolbar-cluster {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--background);
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
 .icon-button {
   display: inline-grid;
   width: 44px;
@@ -438,6 +526,7 @@ footer {
 }
 
 .canvas-viewport {
+  position: relative;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -449,6 +538,32 @@ footer {
   background-position: 0 0, 0 8px, 8px -8px, -8px 0;
   background-size: 16px 16px;
   touch-action: none;
+}
+
+.canvas-status {
+  position: absolute;
+  z-index: 2;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  max-width: calc(100% - 24px);
+  padding: 6px;
+  border-radius: 6px;
+  background: oklch(0.18 0.01 220 / 0.86);
+  color: oklch(0.96 0 0);
+  gap: 4px;
+  flex-wrap: wrap;
+  pointer-events: none;
+}
+
+.canvas-status span {
+  min-height: 24px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: oklch(1 0 0 / 0.1);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 :root[data-theme="dark"] .canvas-viewport {
@@ -791,6 +906,12 @@ dd {
   accent-color: var(--primary);
 }
 
+.export-summary {
+  margin: 0;
+  padding: 10px 0;
+  border-block: 1px solid var(--border);
+}
+
 .export-panel .primary-action {
   width: 100%;
   margin-top: auto;
@@ -846,6 +967,11 @@ footer a {
     min-height: 64px;
   }
 
+  .workflow-rail {
+    margin-inline: -12px;
+    padding-inline: 12px;
+  }
+
   h1 {
     font-size: 1.35rem;
   }
@@ -888,6 +1014,11 @@ footer a {
     overscroll-behavior-x: contain;
     scrollbar-color: var(--border) transparent;
     scrollbar-width: thin;
+  }
+
+  .canvas-status {
+    right: 8px;
+    bottom: 8px;
   }
 
   .text-button,

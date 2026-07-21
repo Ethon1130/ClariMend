@@ -146,6 +146,11 @@ export default function ResultView({ image, result, shapes, onEdit, onDownloaded
 
         <aside className="export-panel">
           <h2>{t.downloadResult}</h2>
+          <dl className="export-summary">
+            <div><dt>{t.outputSize}</dt><dd>{image.work.width} × {image.work.height}</dd></div>
+            <div><dt>{t.repairArea}</dt><dd>{shapes.length ? t.maskCount(shapes.length) : t.none}</dd></div>
+            <div><dt>{t.transparency}</dt><dd>{image.hasAlpha ? t.alphaKept : t.noAlpha}</dd></div>
+          </dl>
           <label>
             <span>{t.format}</span>
             <select onChange={(event) => setFormat(event.target.value as Format)} value={format}>

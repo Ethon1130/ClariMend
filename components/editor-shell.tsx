@@ -104,6 +104,20 @@ function EditorShellInner() {
         </div>
       </header>
 
+      <nav className="workflow-rail" aria-label={t.workflowLabel}>
+        {t.workflow.map((step, index) => (
+          <span
+            aria-current={(!image && index === 0) || (image && index === 2) ? "step" : undefined}
+            className="workflow-step"
+            data-active={(!image && index === 0) || (image && index === 2)}
+            key={step}
+          >
+            <span aria-hidden="true">{index + 1}</span>
+            {step}
+          </span>
+        ))}
+      </nav>
+
       {!image ? (
         <>
           <section className="consent" aria-labelledby="consent-title">
@@ -150,6 +164,9 @@ function EditorShellInner() {
               <h2>{authorized ? t.uploadReady : t.uploadLocked}</h2>
               <p id="file-help">{t.fileHelp}</p>
             </div>
+            <ul className="upload-facts" aria-label={t.uploadFactsLabel}>
+              {t.uploadFacts.map((fact) => <li key={fact}>{fact}</li>)}
+            </ul>
             <div className="upload-actions">
               <button
                 className="primary-action"
