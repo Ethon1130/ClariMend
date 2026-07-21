@@ -60,18 +60,20 @@ function EditorShellInner() {
       <header className="app-header">
         <div className="brand-lockup">
           <svg aria-hidden="true" className="brand-mark" viewBox="0 0 32 32">
-            <rect width="32" height="32" rx="7" fill="#16786f" />
+            <rect width="32" height="32" rx="8" fill="#16786f" />
             <path
-              d="M17 4h7a4 4 0 0 1 4 4v16a4 4 0 0 1-4 4h-7l-2-3 2-3-2-3 2-3-2-3 2-3-2-3 2-3Z"
-              fill="#183234"
-            />
-            <path
-              d="M9 14v-4h5M23 18v4h-5M9 22l5-6 3 3 2-2 4 5"
+              d="M22.4 10.2a8 8 0 1 0 0 11.6"
               fill="none"
               stroke="#fff"
               strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
+              strokeWidth="3.2"
+            />
+            <path
+              d="M23 14.2v3.6"
+              fill="none"
+              stroke="#9fe3d8"
+              strokeLinecap="round"
+              strokeWidth="3.2"
             />
           </svg>
           <div className="brand-copy">
