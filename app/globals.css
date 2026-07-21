@@ -957,6 +957,17 @@ dd {
   accent-color: var(--primary);
 }
 
+.repair-method-control {
+  display: flex;
+  width: 100%;
+  margin-top: 12px;
+}
+
+.repair-method-control button {
+  min-width: 0;
+  flex: 1;
+}
+
 .export-summary {
   margin: 0;
   padding: 10px 0;

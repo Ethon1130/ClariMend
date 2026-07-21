@@ -2,6 +2,7 @@ node_modules/
 .next/
 coverage/
 public/vendor/opencv/
+public/vendor/onnxruntime/
 .impeccable/
 *.tsbuildinfo
 *.log

@@ -1,14 +1,24 @@
 import { detectCandidates } from "@/lib/detection";
 import { compositeCrop } from "@/lib/inpaint-composite";
+import { createLamaImageInput, createLamaMaskInput, featherMask, lamaCrop, LAMA_SIZE, resizeLamaOutput } from "@/lib/lama";
 import { analyzeConnectedMask } from "@/lib/mask-analysis";
 import type { WorkerRequest, WorkerResponse } from "@/lib/worker-messages";
+import type { InferenceSession } from "onnxruntime-web";
 
 type Cv = typeof import("@techstark/opencv-js");
 
 declare function importScripts(...urls: string[]): void;
 
 let cvPromise: Promise<Cv> | null = null;
+type LamaRuntime = {
+  ort: typeof import("onnxruntime-web/webgpu");
+  session: InferenceSession;
+  provider: "webgpu" | "wasm";
+};
+let lamaPromise: Promise<LamaRuntime> | null = null;
 const cancelled = new Set<string>();
+const LAMA_MODEL_URL = process.env.NEXT_PUBLIC_LAMA_MODEL_URL
+  ?? "https://huggingface.co/Carve/LaMa-ONNX/resolve/c3c0c9e468934d62e79c329e35d82dd09ff8c444/lama_fp32.onnx";
 
 function respond(message: WorkerResponse, transfer?: Transferable[]) {
   self.postMessage(message, { transfer: transfer ?? [] });
@@ -31,6 +41,33 @@ async function loadOpenCv(taskId: string) {
   return cvPromise;
 }
 
+async function loadLama(taskId: string) {
+  if (!lamaPromise) {
+    lamaPromise = (async () => {
+      respond({ type: "progress", taskId, stage: "downloading", progress: 0.12 });
+      const ort = await import("onnxruntime-web/webgpu");
+      ort.env.logLevel = "fatal";
+      ort.env.wasm.wasmPaths = "/vendor/onnxruntime/";
+      ort.env.wasm.numThreads = 1;
+      respond({ type: "progress", taskId, stage: "initializing", progress: 0.48 });
+      if ((self.navigator as Navigator & { gpu?: unknown }).gpu) {
+        try {
+          const session = await ort.InferenceSession.create(LAMA_MODEL_URL, { executionProviders: ["webgpu"] });
+          return { ort, session, provider: "webgpu" as const };
+        } catch {
+          // Some adapters expose WebGPU but cannot compile every LaMa operator.
+        }
+      }
+      const session = await ort.InferenceSession.create(LAMA_MODEL_URL, { executionProviders: ["wasm"] });
+      return { ort, session, provider: "wasm" as const };
+    })().catch((error) => {
+      lamaPromise = null;
+      throw error;
+    });
+  }
+  return lamaPromise;
+}
+
 function maskBounds(mask: Uint8Array, width: number, height: number) {
   let minX = width;
   let minY = height;
@@ -48,13 +85,29 @@ function maskBounds(mask: Uint8Array, width: number, height: number) {
   return maxX < 0 ? null : { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
 }
 
-async function repair(message: Extract<WorkerRequest, { type: "repair" }>) {
+function extractCrop(
+  original: Uint8ClampedArray,
+  mask: Uint8Array,
+  imageWidth: number,
+  crop: { x: number; y: number; width: number; height: number },
+) {
+  const rgba = new Uint8ClampedArray(crop.width * crop.height * 4);
+  const cropMask = new Uint8Array(crop.width * crop.height);
+  for (let y = 0; y < crop.height; y += 1) {
+    const imageOffset = ((crop.y + y) * imageWidth + crop.x) * 4;
+    rgba.set(original.subarray(imageOffset, imageOffset + crop.width * 4), y * crop.width * 4);
+    cropMask.set(mask.subarray((crop.y + y) * imageWidth + crop.x, (crop.y + y) * imageWidth + crop.x + crop.width), y * crop.width);
+  }
+  return { rgba, mask: cropMask };
+}
+
+async function repairTraditional(
+  message: Extract<WorkerRequest, { type: "repair" }>,
+  original: Uint8ClampedArray,
+  mask: Uint8Array,
+  bounds: { x: number; y: number; width: number; height: number },
+) {
   const { taskId, width, height } = message;
-  const original = new Uint8ClampedArray(message.rgba);
-  const mask = new Uint8Array(message.mask);
-  analyzeConnectedMask(mask, width, height);
-  const bounds = maskBounds(mask, width, height);
-  if (!bounds) throw new Error("empty-mask");
   const context = Math.min(256, Math.max(64, Math.round(Math.max(bounds.width, bounds.height) * 0.5)));
   const crop = {
     x: Math.max(0, bounds.x - context),
@@ -69,13 +122,7 @@ async function repair(message: Extract<WorkerRequest, { type: "repair" }>) {
   if (cancelled.has(taskId)) return respond({ type: "cancelled", taskId });
   respond({ type: "progress", taskId, stage: "processing", progress: 0.6 });
 
-  const cropRgba = new Uint8ClampedArray(crop.width * crop.height * 4);
-  const cropMask = new Uint8Array(crop.width * crop.height);
-  for (let y = 0; y < crop.height; y += 1) {
-    const imageOffset = ((crop.y + y) * width + crop.x) * 4;
-    cropRgba.set(original.subarray(imageOffset, imageOffset + crop.width * 4), y * crop.width * 4);
-    cropMask.set(mask.subarray((crop.y + y) * width + crop.x, (crop.y + y) * width + crop.x + crop.width), y * crop.width);
-  }
+  const cropped = extractCrop(original, mask, width, crop);
 
   const rgbaMat = new cv.Mat(crop.height, crop.width, cv.CV_8UC4);
   const rgbMat = new cv.Mat();
@@ -87,8 +134,8 @@ async function repair(message: Extract<WorkerRequest, { type: "repair" }>) {
   const kernel = cv.Mat.ones(kernelSize, kernelSize, cv.CV_8U);
   let method: "telea" | "ns" = "telea";
   try {
-    rgbaMat.data.set(cropRgba);
-    maskMat.data.set(cropMask);
+    rgbaMat.data.set(cropped.rgba);
+    maskMat.data.set(cropped.mask);
     cv.cvtColor(rgbaMat, rgbMat, cv.COLOR_RGBA2RGB);
     cv.dilate(maskMat, dilated, kernel);
     cv.GaussianBlur(dilated, feather, new cv.Size(7, 7), 0, 0, cv.BORDER_DEFAULT);
@@ -116,6 +163,61 @@ async function repair(message: Extract<WorkerRequest, { type: "repair" }>) {
   }
 }
 
+async function repairLama(
+  message: Extract<WorkerRequest, { type: "repair" }>,
+  original: Uint8ClampedArray,
+  mask: Uint8Array,
+  bounds: { x: number; y: number; width: number; height: number },
+) {
+  const { taskId, width, height } = message;
+  const crop = lamaCrop(bounds, width, height);
+  const cropped = extractCrop(original, mask, width, crop);
+  const runtime = await loadLama(taskId);
+  if (cancelled.has(taskId)) return respond({ type: "cancelled", taskId });
+  respond({ type: "progress", taskId, stage: "processing", progress: 0.62 });
+  const imageTensor = new runtime.ort.Tensor(
+    "float32",
+    createLamaImageInput(cropped.rgba, crop.width, crop.height),
+    [1, 3, LAMA_SIZE, LAMA_SIZE],
+  );
+  const maskTensor = new runtime.ort.Tensor(
+    "float32",
+    createLamaMaskInput(cropped.mask, crop.width, crop.height),
+    [1, 1, LAMA_SIZE, LAMA_SIZE],
+  );
+  const feeds = { image: imageTensor, mask: maskTensor };
+  let output;
+  try {
+    output = await runtime.session.run(feeds);
+  } catch (error) {
+    if (runtime.provider !== "webgpu") throw error;
+    respond({ type: "progress", taskId, stage: "initializing", progress: 0.56 });
+    const fallback = await runtime.ort.InferenceSession.create(LAMA_MODEL_URL, { executionProviders: ["wasm"] });
+    await runtime.session.release();
+    runtime.session = fallback;
+    runtime.provider = "wasm";
+    output = await runtime.session.run(feeds);
+  }
+  const tensor = output[runtime.session.outputNames[0]];
+  if (!tensor || !(tensor.data instanceof Float32Array)) throw new Error("lama-output-invalid");
+  const repaired = resizeLamaOutput(tensor.data, crop.width, crop.height);
+  const blendMask = featherMask(cropped.mask, crop.width, crop.height);
+  const result = compositeCrop(original, repaired, blendMask, crop, width);
+  if (cancelled.has(taskId)) return respond({ type: "cancelled", taskId });
+  respond({ type: "repaired", taskId, width, height, rgba: result.buffer, method: "lama" }, [result.buffer]);
+}
+
+async function repair(message: Extract<WorkerRequest, { type: "repair" }>) {
+  const { width, height } = message;
+  const original = new Uint8ClampedArray(message.rgba);
+  const mask = new Uint8Array(message.mask);
+  analyzeConnectedMask(mask, width, height);
+  const bounds = maskBounds(mask, width, height);
+  if (!bounds) throw new Error("empty-mask");
+  if (message.method === "lama") return repairLama(message, original, mask, bounds);
+  return repairTraditional(message, original, mask, bounds);
+}
+
 self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
   const message = event.data;
   if (message.type === "init") return respond({ type: "ready" });
@@ -126,6 +228,8 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
   if (message.type === "release") {
     cancelled.clear();
     cvPromise = null;
+    void lamaPromise?.then(({ session }) => session.release()).catch(() => undefined);
+    lamaPromise = null;
     return respond({ type: "released" });
   }
   if (message.type === "detect") {

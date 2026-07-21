@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DecodedImage } from "@/lib/decode-image";
-import type { Candidate, WorkerRequest, WorkerResponse } from "@/lib/worker-messages";
+import type { Candidate, RepairMethod, WorkerRequest, WorkerResponse } from "@/lib/worker-messages";
 
-type Status = "idle" | "detecting" | "loading" | "initializing" | "processing" | "error";
+type Status = "idle" | "detecting" | "loading" | "downloading" | "initializing" | "processing" | "error";
 type PendingTask = {
   resolve: (value: Candidate[] | HTMLCanvasElement) => void;
   reject: (reason: Error) => void;
@@ -128,8 +128,8 @@ export function useImageWorker() {
     );
   }, [run]);
 
-  const repair = useCallback((image: DecodedImage, maskCanvas: HTMLCanvasElement) => {
-    const imageData = canvasContext(image.canvas).getImageData(0, 0, image.work.width, image.work.height);
+  const repair = useCallback((image: DecodedImage, sourceCanvas: HTMLCanvasElement, maskCanvas: HTMLCanvasElement, method: RepairMethod) => {
+    const imageData = canvasContext(sourceCanvas).getImageData(0, 0, image.work.width, image.work.height);
     const maskData = canvasContext(maskCanvas).getImageData(0, 0, image.work.width, image.work.height).data;
     const mask = new Uint8Array(image.work.width * image.work.height);
     for (let index = 0; index < mask.length; index += 1) mask[index] = maskData[index * 4 + 3];
@@ -144,6 +144,7 @@ export function useImageWorker() {
         height: image.work.height,
         rgba: imageData.data.buffer,
         mask: mask.buffer,
+        method,
       },
       [imageData.data.buffer, mask.buffer],
     );

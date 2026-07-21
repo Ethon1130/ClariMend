@@ -11,3 +11,19 @@ const licenseTarget = resolve(root, "public/vendor/opencv/LICENSE");
 await mkdir(dirname(target), { recursive: true });
 await copyFile(source, target);
 await copyFile(licenseSource, licenseTarget);
+
+const ortSource = resolve(root, "node_modules/onnxruntime-web/dist");
+const ortTarget = resolve(root, "public/vendor/onnxruntime");
+await mkdir(ortTarget, { recursive: true });
+for (const file of [
+  "ort-wasm-simd-threaded.jsep.mjs",
+  "ort-wasm-simd-threaded.jsep.wasm",
+  "ort-wasm-simd-threaded.mjs",
+  "ort-wasm-simd-threaded.wasm",
+]) {
+  await copyFile(resolve(ortSource, file), resolve(ortTarget, file));
+}
+await copyFile(
+  resolve(root, "licenses/onnxruntime.txt"),
+  resolve(ortTarget, "LICENSE"),
+);

@@ -13,6 +13,7 @@ type Props = {
   image: DecodedImage;
   result: HTMLCanvasElement;
   shapes: MaskShape[];
+  cloneCount: number;
   onEdit: () => void;
   onDownloaded: () => void;
 };
@@ -23,7 +24,7 @@ function outputName(fileName: string, format: Format, suffix: string) {
   return `${stem}-${suffix}.${extension}`;
 }
 
-export default function ResultView({ image, result, shapes, onEdit, onDownloaded }: Props) {
+export default function ResultView({ image, result, shapes, cloneCount, onEdit, onDownloaded }: Props) {
   const { t } = useAppPreferences();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mode, setMode] = useState<Mode>("compare");
@@ -149,6 +150,7 @@ export default function ResultView({ image, result, shapes, onEdit, onDownloaded
           <dl className="export-summary">
             <div><dt>{t.outputSize}</dt><dd>{image.work.width} × {image.work.height}</dd></div>
             <div><dt>{t.repairArea}</dt><dd>{shapes.length ? t.maskCount(shapes.length) : t.none}</dd></div>
+            <div><dt>{t.cloneEdits}</dt><dd>{cloneCount ? t.cloneCount(cloneCount) : t.none}</dd></div>
             <div><dt>{t.transparency}</dt><dd>{image.hasAlpha ? t.alphaKept : t.noAlpha}</dd></div>
           </dl>
           <label>

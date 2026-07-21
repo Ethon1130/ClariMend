@@ -14,15 +14,17 @@ import {
   ScanSearch,
   Sparkles,
   SquareDashed,
+  Stamp,
   Trash2,
   Undo2,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Image as KonvaImage, Layer, Line, Rect, Stage, Transformer } from "react-konva";
+import { Circle, Image as KonvaImage, Layer, Line, Rect, Stage, Transformer } from "react-konva";
 import ResultView from "@/components/result-view";
 import { useAppPreferences } from "@/components/app-preferences";
 import { useImageWorker } from "@/hooks/use-image-worker";
+import { renderCloneStrokes, type CloneStroke } from "@/lib/clone-stamp";
 import type { DecodedImage } from "@/lib/decode-image";
 import {
   fitImageToViewport,
@@ -33,9 +35,10 @@ import {
 } from "@/lib/coordinates";
 import { commitHistory, createHistory, redoHistory, undoHistory } from "@/lib/history";
 import { getMaskStats, normalizeRectangle, rasterizeMask, type MaskRectangle, type MaskShape } from "@/lib/mask";
-import type { Candidate } from "@/lib/worker-messages";
+import type { Candidate, RepairMethod } from "@/lib/worker-messages";
 
-type Tool = "select" | "rectangle" | "brush" | "eraser" | "hand";
+type Tool = "select" | "rectangle" | "brush" | "eraser" | "clone" | "hand";
+type EditorCommand = MaskShape | CloneStroke;
 
 type Props = {
   image: DecodedImage;
@@ -83,18 +86,36 @@ function newId() {
   return crypto.randomUUID();
 }
 
+function isMaskShape(command: EditorCommand): command is MaskShape {
+  return command.kind !== "clone";
+}
+
+function copyCanvas(source: HTMLCanvasElement) {
+  const canvas = document.createElement("canvas");
+  canvas.width = source.width;
+  canvas.height = source.height;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("canvas-unavailable");
+  context.drawImage(source, 0, 0);
+  return canvas;
+}
+
 export default function ImageEditor({ image, onClear }: Props) {
   const { t } = useAppPreferences();
   const [viewportRef, viewport] = useElementSize<HTMLDivElement>();
   const stageRef = useRef<Konva.Stage>(null);
   const selectedRectangleRef = useRef<Konva.Rect>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
+  const previousEditedCanvas = useRef<HTMLCanvasElement | null>(null);
   const previousViewport = useRef(viewport);
   const [view, setView] = useState<ViewTransform>({ x: 0, y: 0, scale: 1 });
   const [tool, setTool] = useState<Tool>("rectangle");
   const [brushSize, setBrushSize] = useState(36);
-  const [history, setHistory] = useState(() => createHistory<MaskShape[]>([]));
-  const [draft, setDraft] = useState<MaskShape | null>(null);
+  const [history, setHistory] = useState(() => createHistory<EditorCommand[]>([]));
+  const [draft, setDraft] = useState<EditorCommand | null>(null);
+  const [cloneSource, setCloneSource] = useState<Point | null>(null);
+  const [repairMethod, setRepairMethod] = useState<RepairMethod>("traditional");
+  const [lamaApproved, setLamaApproved] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [spacePressed, setSpacePressed] = useState(false);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -104,15 +125,37 @@ export default function ImageEditor({ image, onClear }: Props) {
   const [resultDownloaded, setResultDownloaded] = useState(false);
   const pinch = useRef<{ distance: number; center: Point } | null>(null);
   const imageWorker = useImageWorker();
-  const shapes = history.present;
+  const commands = history.present;
+  const maskShapes = useMemo(() => commands.filter(isMaskShape), [commands]);
+  const cloneStrokes = useMemo(
+    () => commands.filter((command): command is CloneStroke => command.kind === "clone"),
+    [commands],
+  );
+  const previewCloneStrokes = useMemo(
+    () => (draft?.kind === "clone" ? [...cloneStrokes, draft] : cloneStrokes),
+    [cloneStrokes, draft],
+  );
+  const editedCanvas = useMemo(
+    () => renderCloneStrokes(image.canvas, previewCloneStrokes),
+    [image.canvas, previewCloneStrokes],
+  );
+
+  useEffect(() => {
+    const previous = previousEditedCanvas.current;
+    previousEditedCanvas.current = editedCanvas;
+    if (previous && previous !== editedCanvas) {
+      previous.width = 0;
+      previous.height = 0;
+    }
+  }, [editedCanvas]);
 
   const stats = useMemo(() => {
-    const mask = rasterizeMask(image.work.width, image.work.height, shapes);
+    const mask = rasterizeMask(image.work.width, image.work.height, maskShapes);
     const result = getMaskStats(mask);
     mask.width = 0;
     mask.height = 0;
     return result;
-  }, [image.work.height, image.work.width, shapes]);
+  }, [image.work.height, image.work.width, maskShapes]);
 
   const fitView = useCallback(() => {
     if (!viewport.width || !viewport.height) return;
@@ -147,9 +190,9 @@ export default function ImageEditor({ image, onClear }: Props) {
     if (!transformer) return;
     transformer.nodes(rectangle ? [rectangle] : []);
     transformer.getLayer()?.batchDraw();
-  }, [selectedId, shapes]);
+  }, [commands, selectedId]);
 
-  const commit = useCallback((next: MaskShape[]) => {
+  const commit = useCallback((next: EditorCommand[]) => {
     setHistory((current) => commitHistory(current, next));
   }, []);
 
@@ -165,9 +208,9 @@ export default function ImageEditor({ image, onClear }: Props) {
 
   const deleteSelected = useCallback(() => {
     if (!selectedId) return;
-    commit(shapes.filter((shape) => shape.id !== selectedId));
+    commit(commands.filter((command) => command.id !== selectedId));
     setSelectedId(null);
-  }, [commit, selectedId, shapes]);
+  }, [commands, commit, selectedId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -232,6 +275,22 @@ export default function ImageEditor({ image, onClear }: Props) {
     }
     const point = imagePoint();
     if (!point) return;
+    if (tool === "clone") {
+      if (event.evt.altKey || !cloneSource) {
+        setCloneSource(point);
+        setDraft(null);
+        return;
+      }
+      setDraft({
+        id: newId(),
+        kind: "clone",
+        points: [point.x, point.y],
+        size: brushSize,
+        offsetX: cloneSource.x - point.x,
+        offsetY: cloneSource.y - point.y,
+      });
+      return;
+    }
     if (tool === "rectangle") {
       setDraft({ id: newId(), kind: "rectangle", x: point.x, y: point.y, width: 0, height: 0 });
       return;
@@ -264,17 +323,17 @@ export default function ImageEditor({ image, onClear }: Props) {
       const normalized = normalizeRectangle(draft);
       if (normalized.width >= 2 && normalized.height >= 2) {
         const rectangle: MaskRectangle = { ...draft, ...normalized };
-        commit([...shapes, rectangle]);
+        commit([...commands, rectangle]);
         setSelectedId(rectangle.id);
       }
     } else if (draft.points.length >= 2) {
-      commit([...shapes, draft]);
+      commit([...commands, draft]);
     }
     setDraft(null);
   };
 
   const updateRectangle = (id: string, patch: Partial<MaskRectangle>) => {
-    commit(shapes.map((shape) => (shape.id === id && shape.kind === "rectangle" ? { ...shape, ...patch } : shape)));
+    commit(commands.map((command) => (command.id === id && command.kind === "rectangle" ? { ...command, ...patch } : command)));
   };
 
   const acceptCandidate = (candidate: Candidate) => {
@@ -286,7 +345,7 @@ export default function ImageEditor({ image, onClear }: Props) {
       width: candidate.width,
       height: candidate.height,
     };
-    commit([...shapes, rectangle]);
+    commit([...commands, rectangle]);
     setCandidates((current) => current.filter((item) => item.id !== candidate.id));
     setSelectedId(rectangle.id);
     setCandidateMessage(null);
@@ -304,11 +363,27 @@ export default function ImageEditor({ image, onClear }: Props) {
   };
 
   const repair = async () => {
-    if (!stats.pixels || risk === "blocked") return;
+    if ((!stats.pixels && !cloneStrokes.length) || risk === "blocked") return;
     if (risk === "warning" && !window.confirm(t.confirmWarning)) return;
-    const mask = rasterizeMask(image.work.width, image.work.height, shapes);
+    if (!stats.pixels && cloneStrokes.length) {
+      setResult((current) => {
+        if (current) {
+          current.width = 0;
+          current.height = 0;
+        }
+        return copyCanvas(editedCanvas);
+      });
+      setResultDownloaded(false);
+      setShowResult(true);
+      return;
+    }
+    if (repairMethod === "lama" && !lamaApproved) {
+      if (!window.confirm(t.confirmLamaDownload)) return;
+      setLamaApproved(true);
+    }
+    const mask = rasterizeMask(image.work.width, image.work.height, maskShapes);
     try {
-      const nextResult = await imageWorker.repair(image, mask);
+      const nextResult = await imageWorker.repair(image, editedCanvas, mask, repairMethod);
       setResult((current) => {
         if (current) {
           current.width = 0;
@@ -370,7 +445,7 @@ export default function ImageEditor({ image, onClear }: Props) {
     pinch.current = { distance, center };
   };
 
-  const allShapes = draft ? [...shapes, draft] : shapes;
+  const visibleMaskShapes = draft && isMaskShape(draft) ? [...maskShapes, draft] : maskShapes;
   const coveragePercent = stats.coverage * 100;
   const risk = coveragePercent > 25 ? "blocked" : coveragePercent > 10 ? "warning" : "normal";
 
@@ -381,7 +456,8 @@ export default function ImageEditor({ image, onClear }: Props) {
         onDownloaded={() => setResultDownloaded(true)}
         onEdit={() => setShowResult(false)}
         result={result}
-        shapes={shapes}
+        shapes={maskShapes}
+        cloneCount={cloneStrokes.length}
       />
     );
   }
@@ -396,6 +472,7 @@ export default function ImageEditor({ image, onClear }: Props) {
               ["rectangle", SquareDashed, t.tools.rectangle],
               ["brush", Paintbrush, t.tools.brush],
               ["eraser", Eraser, t.tools.eraser],
+              ["clone", Stamp, t.tools.clone],
               ["hand", Hand, t.tools.hand],
             ] as const
           ).map(([value, Icon, label]) => (
@@ -445,7 +522,8 @@ export default function ImageEditor({ image, onClear }: Props) {
           <div className="canvas-status" aria-live="polite">
             <span>{t.activeTool}: {t.tools[tool]}</span>
             <span>{Math.round(view.scale * 100)}%</span>
-            <span>{t.maskCount(shapes.length)}</span>
+            <span>{t.maskCount(maskShapes.length)}</span>
+            {cloneStrokes.length ? <span>{t.cloneCount(cloneStrokes.length)}</span> : null}
           </div>
           {viewport.width > 0 && viewport.height > 0 ? (
             <Stage
@@ -470,7 +548,7 @@ export default function ImageEditor({ image, onClear }: Props) {
               y={view.y}
             >
               <Layer listening={false}>
-                <KonvaImage height={image.work.height} image={image.canvas} width={image.work.width} />
+                <KonvaImage height={image.work.height} image={editedCanvas} width={image.work.width} />
               </Layer>
               <Layer>
                 {candidates.map((candidate) => (
@@ -487,7 +565,7 @@ export default function ImageEditor({ image, onClear }: Props) {
                     y={candidate.y}
                   />
                 ))}
-                {allShapes.map((shape) =>
+                {visibleMaskShapes.map((shape) =>
                   shape.kind === "rectangle" ? (
                     <Rect
                       draggable={tool === "select"}
@@ -535,6 +613,17 @@ export default function ImageEditor({ image, onClear }: Props) {
                     />
                   ),
                 )}
+                {tool === "clone" && cloneSource ? (
+                  <Circle
+                    fill="rgba(18, 111, 105, 0.18)"
+                    listening={false}
+                    radius={Math.max(5, brushSize / 2)}
+                    stroke="#126f69"
+                    strokeWidth={2 / view.scale}
+                    x={cloneSource.x}
+                    y={cloneSource.y}
+                  />
+                ) : null}
                 <Transformer
                   anchorFill="#ffffff"
                   anchorSize={10 / view.scale}
@@ -581,7 +670,7 @@ export default function ImageEditor({ image, onClear }: Props) {
                       const accepted = candidates.map<MaskRectangle>((candidate) => ({
                         id: newId(), kind: "rectangle", x: candidate.x, y: candidate.y, width: candidate.width, height: candidate.height,
                       }));
-                      commit([...shapes, ...accepted]);
+                      commit([...commands, ...accepted]);
                       setCandidates([]);
                     }}
                     type="button"
@@ -611,6 +700,23 @@ export default function ImageEditor({ image, onClear }: Props) {
           </div>
 
           <div className="inspector-section">
+            <h2>{t.repairMethod}</h2>
+            <div className="segmented-control repair-method-control" aria-label={t.repairMethod}>
+              {(["traditional", "lama"] as const).map((method) => (
+                <button
+                  aria-pressed={repairMethod === method}
+                  key={method}
+                  onClick={() => setRepairMethod(method)}
+                  type="button"
+                >
+                  {t.repairMethods[method]}
+                </button>
+              ))}
+            </div>
+            <p className="candidate-message">{t.repairMethodHint[repairMethod]}</p>
+          </div>
+
+          <div className="inspector-section">
             <h2>{t.repairArea}</h2>
             <div className="coverage-row">
               <strong>{coveragePercent.toFixed(2)}%</strong>
@@ -621,7 +727,7 @@ export default function ImageEditor({ image, onClear }: Props) {
             </div>
             {risk === "warning" ? <p className="warning-message">{t.warningArea}</p> : null}
             {risk === "blocked" ? <p className="error-message">{t.blockedArea}</p> : null}
-            {!stats.pixels ? <p className="candidate-message">{t.maskEmptyHint}</p> : null}
+            {!stats.pixels ? <p className="candidate-message">{cloneStrokes.length ? t.cloneOnlyHint : t.maskEmptyHint}</p> : null}
           </div>
 
           {imageWorker.status !== "idle" && imageWorker.status !== "error" ? (
@@ -643,16 +749,24 @@ export default function ImageEditor({ image, onClear }: Props) {
 
           <button
             className="primary-action repair-action"
-            disabled={!stats.pixels || risk === "blocked" || imageWorker.status !== "idle"}
+            disabled={(!stats.pixels && !cloneStrokes.length) || risk === "blocked" || imageWorker.status !== "idle"}
             onClick={() => void repair()}
             type="button"
           >
             <Sparkles aria-hidden="true" size={18} />
-            {t.repair}
+            {!stats.pixels && cloneStrokes.length ? t.previewResult : t.repair}
           </button>
-          <button className="secondary-action" onClick={() => setHistory(createHistory([]))} disabled={!shapes.length} type="button">
+          <button
+            className="secondary-action"
+            onClick={() => {
+              setHistory(createHistory([]));
+              setCloneSource(null);
+            }}
+            disabled={!commands.length}
+            type="button"
+          >
             <RotateCcw aria-hidden="true" size={18} />
-            {t.clearMask}
+            {t.clearEdits}
           </button>
         </aside>
       </div>

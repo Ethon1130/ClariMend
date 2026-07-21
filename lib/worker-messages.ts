@@ -9,6 +9,8 @@ export type Candidate = {
   height: number;
 };
 
+export type RepairMethod = "traditional" | "lama";
+
 export type WorkerRequest =
   | { type: "init" }
   | {
@@ -27,15 +29,16 @@ export type WorkerRequest =
       height: number;
       rgba: ArrayBuffer;
       mask: ArrayBuffer;
+      method: RepairMethod;
     }
   | { type: "cancel"; taskId: string }
   | { type: "release" };
 
 export type WorkerResponse =
   | { type: "ready" }
-  | { type: "progress"; taskId: string; stage: "loading" | "initializing" | "processing"; progress: number }
+  | { type: "progress"; taskId: string; stage: "loading" | "downloading" | "initializing" | "processing"; progress: number }
   | { type: "detected"; taskId: string; candidates: Candidate[] }
-  | { type: "repaired"; taskId: string; width: number; height: number; rgba: ArrayBuffer; method: "telea" | "ns" }
+  | { type: "repaired"; taskId: string; width: number; height: number; rgba: ArrayBuffer; method: "telea" | "ns" | "lama" }
   | { type: "cancelled"; taskId: string }
   | { type: "released" }
   | { type: "error"; taskId?: string; code: string; message: string };
