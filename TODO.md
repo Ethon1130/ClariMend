@@ -217,6 +217,10 @@
 - [ ] 在 Chrome、Edge、Safari、Firefox 当前版本完成桌面验收。
 - [ ] 在 iOS Safari、Android Chrome 和一台4GB Android设备完成移动验收。
 - [ ] 执行生产构建并部署 Vercel Preview。
+- [ ] 域名接入采用方式 2：请 owner 将 `tools.hiapi.ai` 一次性以 NS 子域委托给本项目使用的 Cloudflare，后续工具域名由项目自行维护，不再逐个找 owner 配置。
+- [ ] owner 在其 Cloudflare 中为 `tools.hiapi.ai` 添加 Cloudflare 分配的两条 NS 记录；此项属于 owner 侧基础设施操作，由项目方整理并发送具体请求，不自行修改。
+- [ ] 委托生效后，在 `tools.hiapi.ai` 对应 Cloudflare zone 中按工具添加 CNAME，例如 `tool1 CNAME cname.vercel-dns.com` 对应 `tool1.tools.hiapi.ai`，并在各工具的 Vercel 项目中绑定相应完整域名。
+- [ ] 验证登录 Cookie 作用域为 `.hiapi.ai`，确保 `tool1.tools.hiapi.ai` 等更深层子域可读取 `hiapi_sess`，且 NS 委托不影响现有登录态和跨工具会话共享。
 
 **依赖：**全部 P0 功能。
 
