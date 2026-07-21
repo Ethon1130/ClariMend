@@ -11,9 +11,8 @@ declare function importScripts(...urls: string[]): void;
 
 let cvPromise: Promise<Cv> | null = null;
 type LamaRuntime = {
-  ort: typeof import("onnxruntime-web/webgpu");
+  ort: typeof import("onnxruntime-web/wasm");
   session: InferenceSession;
-  provider: "webgpu" | "wasm";
 };
 let lamaPromise: Promise<LamaRuntime> | null = null;
 const cancelled = new Set<string>();
@@ -45,21 +44,13 @@ async function loadLama(taskId: string) {
   if (!lamaPromise) {
     lamaPromise = (async () => {
       respond({ type: "progress", taskId, stage: "downloading", progress: 0.12 });
-      const ort = await import("onnxruntime-web/webgpu");
+      const ort = await import("onnxruntime-web/wasm");
       ort.env.logLevel = "fatal";
       ort.env.wasm.wasmPaths = "/vendor/onnxruntime/";
       ort.env.wasm.numThreads = 1;
       respond({ type: "progress", taskId, stage: "initializing", progress: 0.48 });
-      if ((self.navigator as Navigator & { gpu?: unknown }).gpu) {
-        try {
-          const session = await ort.InferenceSession.create(LAMA_MODEL_URL, { executionProviders: ["webgpu"] });
-          return { ort, session, provider: "webgpu" as const };
-        } catch {
-          // Some adapters expose WebGPU but cannot compile every LaMa operator.
-        }
-      }
       const session = await ort.InferenceSession.create(LAMA_MODEL_URL, { executionProviders: ["wasm"] });
-      return { ort, session, provider: "wasm" as const };
+      return { ort, session };
     })().catch((error) => {
       lamaPromise = null;
       throw error;
@@ -186,18 +177,7 @@ async function repairLama(
     [1, 1, LAMA_SIZE, LAMA_SIZE],
   );
   const feeds = { image: imageTensor, mask: maskTensor };
-  let output;
-  try {
-    output = await runtime.session.run(feeds);
-  } catch (error) {
-    if (runtime.provider !== "webgpu") throw error;
-    respond({ type: "progress", taskId, stage: "initializing", progress: 0.56 });
-    const fallback = await runtime.ort.InferenceSession.create(LAMA_MODEL_URL, { executionProviders: ["wasm"] });
-    await runtime.session.release();
-    runtime.session = fallback;
-    runtime.provider = "wasm";
-    output = await runtime.session.run(feeds);
-  }
+  const output = await runtime.session.run(feeds);
   const tensor = output[runtime.session.outputNames[0]];
   if (!tensor || !(tensor.data instanceof Float32Array)) throw new Error("lama-output-invalid");
   const repaired = resizeLamaOutput(tensor.data, crop.width, crop.height);

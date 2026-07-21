@@ -2,7 +2,7 @@
 
 ## 实施记录
 
-- 2026-07-21：增加克隆图章与 LaMa ONNX 智能修复原型。克隆笔触支持来源点、固定偏移、笔刷大小、统一撤销/重做和结果导出；LaMa 使用固定 512×512 局部裁剪、WebGPU/WASM 回退、遮罩内羽化合成，并在首次下载约 208 MB 模型前确认。Chrome 桌面/390px 移动视口已验证克隆流程和 OpenCV 回归；测试机 WebGPU 算子失败后自动回退 WASM，约99秒完成一次真实推理。硬度、透明度、移动端长按取样、15秒性能目标和正式模型自托管仍待完成。
+- 2026-07-21：增加克隆图章与 LaMa ONNX 智能修复原型。克隆笔触支持来源点、固定偏移、笔刷大小、统一撤销/重做和结果导出；LaMa 使用固定 512×512 局部裁剪、WASM 推理和遮罩内羽化合成，并在首次下载约 208 MB 模型前确认。Chrome 桌面/390px 移动视口已验证克隆流程和 OpenCV 回归；当前 ONNX 导出的 Fourier 节点与 WebGPU 不兼容，因此原型固定使用 WASM，Vercel Preview 真实推理约83秒完成。硬度、透明度、移动端长按取样、WebGPU 兼容导出、15秒性能目标和正式模型自托管仍待完成。
 - 2026-07-20：完成本地 MVP 主流程，包括授权门槛、安全文件校验、分辨率降级、Konva 编辑器、遮罩历史、候选检测、单 Worker OpenCV 局部修复、结果对比和 JPEG/PNG/WebP 下载。验证通过：lint、TypeScript、20 个单元测试、生产构建、OpenCV `photo/inpaint` 运行时检查，以及 Edge 桌面/移动视口端到端冒烟测试。真实 Safari/Firefox、iOS/Android 设备、4 GB Android、低网速和 Vercel Preview 验收仍待执行。
 
 > 技术基线：纯前端优先，不调用第三方图片修复 API。MVP 使用 Canvas、Web Worker 和 OpenCV.js 完成本地小区域修复；LaMa ONNX 作为后续可选增强。
@@ -317,8 +317,8 @@
 
 ### P2-03 ONNX Runtime Web 技术验证
 
-- [x] 检测 WebGPU 能力和适配器申请失败场景。
-- [x] WebGPU 可用时优先使用 WebGPU 后端。
+- [ ] 检测 WebGPU 能力和适配器申请失败场景。
+- [ ] WebGPU 可用时优先使用 WebGPU 后端；当前模型导出存在算子兼容问题，原型固定使用 WASM。
 - [ ] WASM 仅对较小裁剪开放，避免低端设备长时间卡死。
 - [ ] 评估是否需要 COOP/COEP 和 WASM 多线程。
 - [ ] 确认 CSP、跨域隔离、字体、Worker和静态资源不会互相冲突。

@@ -8,3 +8,5 @@ public/vendor/onnxruntime/
 *.log
 .env*
 !.env.example
+
+.vercel
