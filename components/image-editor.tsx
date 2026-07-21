@@ -46,18 +46,18 @@ type Props = {
 };
 
 function useElementSize<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
+  const [element, setElement] = useState<T | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const ref = useCallback((node: T | null) => setElement(node), []);
 
   useLayoutEffect(() => {
-    const element = ref.current;
     if (!element) return;
     const update = () => setSize({ width: element.clientWidth, height: element.clientHeight });
     update();
     const observer = new ResizeObserver(update);
     observer.observe(element);
     return () => observer.disconnect();
-  }, []);
+  }, [element]);
 
   return [ref, size] as const;
 }
