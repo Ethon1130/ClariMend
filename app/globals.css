@@ -256,6 +256,15 @@ footer {
   font-weight: 650;
 }
 
+.intake-flow {
+  display: flex;
+  width: min(880px, 100%);
+  margin: 24px auto 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .privacy-status {
   gap: 7px;
   color: var(--accent);
@@ -264,12 +273,18 @@ footer {
 }
 
 .consent {
-  gap: 18px;
-  margin: 24px 0 16px;
+  display: block;
+  margin: 0;
   padding: 18px 20px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
+}
+
+.consent-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
 }
 
 .consent-icon {
@@ -277,7 +292,7 @@ footer {
   color: var(--accent);
 }
 
-.consent > div {
+.consent-intro > div {
   flex: 1;
 }
 
@@ -291,22 +306,50 @@ footer {
 }
 
 .consent-check {
-  flex: 0 0 230px;
+  width: 100%;
+  min-height: 52px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--background);
   gap: 10px;
-  min-height: 44px;
+  cursor: pointer;
   font-size: 0.9rem;
   font-weight: 700;
+  transition: background 160ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms cubic-bezier(0.22, 1, 0.36, 1), transform 100ms ease-out;
+}
+
+.consent-check:hover {
+  background: var(--surface-strong);
+}
+
+.consent-check:has(input:checked) {
+  border-color: var(--primary);
+  background: oklch(0.965 0.025 184);
+  color: var(--primary-hover);
+}
+
+:root[data-theme="dark"] .consent-check:has(input:checked) {
+  background: oklch(0.28 0.034 184);
+  color: var(--primary-hover);
+}
+
+.consent-check:active {
+  transform: scale(0.995);
 }
 
 .consent-check input {
   width: 20px;
   height: 20px;
+  margin: 0;
+  flex: 0 0 20px;
   accent-color: var(--primary);
 }
 
 .upload-zone {
   display: flex;
-  min-height: 52vh;
+  min-height: 380px;
   padding: 48px 24px;
   border: 1px dashed var(--border);
   background: var(--background);
@@ -329,6 +372,14 @@ footer {
 
 .upload-zone[data-disabled="true"] {
   color: var(--muted);
+}
+
+.consent:has(input:checked) + .upload-zone {
+  border-color: oklch(0.72 0.05 184);
+}
+
+:root[data-theme="dark"] .consent:has(input:checked) + .upload-zone {
+  border-color: oklch(0.48 0.055 184);
 }
 
 .upload-zone > svg {
@@ -977,12 +1028,7 @@ footer a {
   }
 
   .consent {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .consent-check {
-    flex-basis: 100%;
+    padding: 16px;
   }
 
   .editor-body {
@@ -1071,7 +1117,11 @@ footer a {
   }
 
   .consent {
-    padding: 16px;
+    padding: 14px;
+  }
+
+  .consent-intro {
+    gap: 0;
   }
 
   .consent-icon {
@@ -1111,8 +1161,8 @@ footer a {
   }
 
   .upload-zone {
-    min-height: 470px;
-    padding: 36px 20px;
+    min-height: 380px;
+    padding: 32px 20px;
   }
 
   .export-panel select {

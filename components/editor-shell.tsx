@@ -119,15 +119,18 @@ function EditorShellInner() {
       </nav>
 
       {!image ? (
-        <>
+        <div className="intake-flow">
           <section className="consent" aria-labelledby="consent-title">
-            <ShieldCheck aria-hidden="true" className="consent-icon" size={28} />
-            <div>
-              <h2 id="consent-title">{t.consentTitle}</h2>
-              <p>{t.consentBody}</p>
+            <div className="consent-intro">
+              <ShieldCheck aria-hidden="true" className="consent-icon" size={28} />
+              <div>
+                <h2 id="consent-title">{t.consentTitle}</h2>
+                <p id="consent-description">{t.consentBody}</p>
+              </div>
             </div>
             <label className="consent-check">
               <input
+                aria-describedby="consent-description"
                 checked={authorized}
                 onChange={(event) => {
                   setAuthorized(event.target.checked);
@@ -206,7 +209,7 @@ function EditorShellInner() {
             />
           </section>
           {error ? <p className="file-error" id="file-error" role="alert">{error}</p> : null}
-        </>
+        </div>
       ) : (
         <ImageEditor image={image} onClear={clearImage} />
       )}
