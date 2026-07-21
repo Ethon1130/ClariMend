@@ -2,6 +2,7 @@ import { detectCandidates } from "@/lib/detection";
 import { compositeCrop } from "@/lib/inpaint-composite";
 import { createLamaImageInput, createLamaMaskInput, featherMask, lamaCrop, LAMA_SIZE, resizeLamaOutput } from "@/lib/lama";
 import { analyzeConnectedMask } from "@/lib/mask-analysis";
+import { readResponseBytes } from "@/lib/model-download";
 import type { WorkerRequest, WorkerResponse } from "@/lib/worker-messages";
 import type { InferenceSession } from "onnxruntime-web";
 
@@ -18,6 +19,7 @@ let lamaPromise: Promise<LamaRuntime> | null = null;
 const cancelled = new Set<string>();
 const LAMA_MODEL_URL = process.env.NEXT_PUBLIC_LAMA_MODEL_URL
   ?? "https://huggingface.co/Carve/LaMa-ONNX/resolve/c3c0c9e468934d62e79c329e35d82dd09ff8c444/lama_fp32.onnx";
+const MODEL_STALL_TIMEOUT = 30_000;
 
 function respond(message: WorkerResponse, transfer?: Transferable[]) {
   self.postMessage(message, { transfer: transfer ?? [] });
@@ -48,8 +50,34 @@ async function loadLama(taskId: string) {
       ort.env.logLevel = "fatal";
       ort.env.wasm.wasmPaths = "/vendor/onnxruntime/";
       ort.env.wasm.numThreads = 1;
-      respond({ type: "progress", taskId, stage: "initializing", progress: 0.48 });
-      const session = await ort.InferenceSession.create(LAMA_MODEL_URL, { executionProviders: ["wasm"] });
+      const controller = new AbortController();
+      let stallTimer = setTimeout(() => controller.abort(), MODEL_STALL_TIMEOUT);
+      const resetStallTimer = () => {
+        clearTimeout(stallTimer);
+        stallTimer = setTimeout(() => controller.abort(), MODEL_STALL_TIMEOUT);
+      };
+      let lastProgress = 0.12;
+      let model: Uint8Array;
+      try {
+        const response = await fetch(LAMA_MODEL_URL, { signal: controller.signal });
+        if (!response.ok) throw new Error(`lama-model-http-${response.status}`);
+        resetStallTimer();
+        model = await readResponseBytes(response, (received, total) => {
+          resetStallTimer();
+          const progress = 0.12 + (received / total) * 0.4;
+          if (progress - lastProgress >= 0.005 || received === total) {
+            lastProgress = progress;
+            respond({ type: "progress", taskId, stage: "downloading", progress });
+          }
+        });
+      } catch (error) {
+        if (controller.signal.aborted) throw new Error("lama-model-download-stalled");
+        throw error;
+      } finally {
+        clearTimeout(stallTimer);
+      }
+      respond({ type: "progress", taskId, stage: "initializing", progress: 0.56 });
+      const session = await ort.InferenceSession.create(model, { executionProviders: ["wasm"] });
       return { ort, session };
     })().catch((error) => {
       lamaPromise = null;
