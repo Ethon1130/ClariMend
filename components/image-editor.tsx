@@ -106,7 +106,6 @@ export default function ImageEditor({ image, onClear }: Props) {
   const stageRef = useRef<Konva.Stage>(null);
   const selectedRectangleRef = useRef<Konva.Rect>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
-  const previousEditedCanvas = useRef<HTMLCanvasElement | null>(null);
   const previousViewport = useRef(viewport);
   const [view, setView] = useState<ViewTransform>({ x: 0, y: 0, scale: 1 });
   const [tool, setTool] = useState<Tool>("rectangle");
@@ -136,18 +135,9 @@ export default function ImageEditor({ image, onClear }: Props) {
     [cloneStrokes, draft],
   );
   const editedCanvas = useMemo(
-    () => renderCloneStrokes(image.canvas, previewCloneStrokes),
+    () => previewCloneStrokes.length ? renderCloneStrokes(image.canvas, previewCloneStrokes) : image.canvas,
     [image.canvas, previewCloneStrokes],
   );
-
-  useEffect(() => {
-    const previous = previousEditedCanvas.current;
-    previousEditedCanvas.current = editedCanvas;
-    if (previous && previous !== editedCanvas) {
-      previous.width = 0;
-      previous.height = 0;
-    }
-  }, [editedCanvas]);
 
   const stats = useMemo(() => {
     const mask = rasterizeMask(image.work.width, image.work.height, maskShapes);
