@@ -111,9 +111,3 @@ export async function decodeImageFile(
     ...sizes,
   };
 }
-
-export function releaseDecodedImage(image: DecodedImage | null) {
-  if (!image) return;
-  image.canvas.width = 0;
-  image.canvas.height = 0;
-}

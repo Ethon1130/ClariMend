@@ -2,9 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { Camera, ImagePlus, Languages, LockKeyhole, Moon, ShieldCheck, Sun } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { AppPreferencesProvider, useAppPreferences } from "@/components/app-preferences";
-import { decodeImageFile, releaseDecodedImage, type DecodedImage } from "@/lib/decode-image";
+import { decodeImageFile, type DecodedImage } from "@/lib/decode-image";
 import { chooseWorkPixelLimit } from "@/lib/image-sizes";
 import { ImageValidationError, validateImageFile } from "@/lib/image-validation";
 
@@ -25,13 +25,8 @@ function EditorShellInner() {
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => () => releaseDecodedImage(image), [image]);
-
   const clearImage = () => {
-    setImage((current) => {
-      releaseDecodedImage(current);
-      return null;
-    });
+    setImage(null);
     setError(null);
     if (fileInput.current) fileInput.current.value = "";
     if (cameraInput.current) cameraInput.current.value = "";
@@ -50,10 +45,7 @@ function EditorShellInner() {
         narrowViewport: window.matchMedia("(max-width: 820px)").matches,
       });
       const decoded = await decodeImageFile(file, header, workLimit);
-      setImage((current) => {
-        releaseDecodedImage(current);
-        return decoded;
-      });
+      setImage(decoded);
     } catch (reason) {
       if (reason instanceof ImageValidationError) setError(t.validation[reason.code]);
       else if (reason instanceof DOMException && reason.name === "EncodingError") setError(t.decodeFailed);
