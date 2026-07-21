@@ -102,12 +102,12 @@ export function useImageWorker() {
     });
   }, [ensureWorker]);
 
-  const detect = useCallback((image: DecodedImage) => {
+  const detect = useCallback((image: DecodedImage, source: HTMLCanvasElement = image.canvas) => {
     const canvas = document.createElement("canvas");
     canvas.width = image.detection.width;
     canvas.height = image.detection.height;
     const context = canvasContext(canvas);
-    context.drawImage(image.canvas, 0, 0, canvas.width, canvas.height);
+    context.drawImage(source, 0, 0, canvas.width, canvas.height);
     const rgba = context.getImageData(0, 0, canvas.width, canvas.height).data;
     canvas.width = 0;
     canvas.height = 0;

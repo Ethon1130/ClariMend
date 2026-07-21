@@ -134,9 +134,20 @@ export default function ImageEditor({ image, onClear }: Props) {
     () => (draft?.kind === "clone" ? [...cloneStrokes, draft] : cloneStrokes),
     [cloneStrokes, draft],
   );
+  // Immutable local cache of the decoded image. ImageEditor mounts once per image,
+  // so this snapshot is created once and stays stable for the component's lifetime.
+  // Rendering the base layer (and deriving clone/repair/detect sources) from this
+  // cache — instead of the live `image.canvas` reference that flows through the
+  // worker/clone/repair paths — guarantees the base image survives undo/redo and
+  // can never be neutered.
+  const [baseCanvas] = useState(() => copyCanvas(image.canvas));
+  useEffect(() => () => {
+    baseCanvas.width = 0;
+    baseCanvas.height = 0;
+  }, [baseCanvas]);
   const editedCanvas = useMemo(
-    () => previewCloneStrokes.length ? renderCloneStrokes(image.canvas, previewCloneStrokes) : image.canvas,
-    [image.canvas, previewCloneStrokes],
+    () => previewCloneStrokes.length ? renderCloneStrokes(baseCanvas, previewCloneStrokes) : baseCanvas,
+    [baseCanvas, previewCloneStrokes],
   );
 
   const stats = useMemo(() => {
@@ -344,7 +355,7 @@ export default function ImageEditor({ image, onClear }: Props) {
   const detect = async () => {
     setCandidateMessage(null);
     try {
-      const found = await imageWorker.detect(image);
+      const found = await imageWorker.detect(image, baseCanvas);
       setCandidates(found);
       if (!found.length) setCandidateMessage(t.noCandidates);
     } catch {
