@@ -21,6 +21,7 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Image as KonvaImage, Layer, Line, Rect, Stage, Transformer } from "react-konva";
 import ResultView from "@/components/result-view";
+import { useAppPreferences } from "@/components/app-preferences";
 import { useImageWorker } from "@/hooks/use-image-worker";
 import type { DecodedImage } from "@/lib/decode-image";
 import {
@@ -83,6 +84,7 @@ function newId() {
 }
 
 export default function ImageEditor({ image, onClear }: Props) {
+  const { t } = useAppPreferences();
   const [viewportRef, viewport] = useElementSize<HTMLDivElement>();
   const stageRef = useRef<Konva.Stage>(null);
   const selectedRectangleRef = useRef<Konva.Rect>(null);
@@ -295,7 +297,7 @@ export default function ImageEditor({ image, onClear }: Props) {
     try {
       const found = await imageWorker.detect(image);
       setCandidates(found);
-      if (!found.length) setCandidateMessage("未找到可靠候选，可继续手动编辑。");
+      if (!found.length) setCandidateMessage(t.noCandidates);
     } catch {
       // The worker exposes a recoverable error state below.
     }
@@ -303,7 +305,7 @@ export default function ImageEditor({ image, onClear }: Props) {
 
   const repair = async () => {
     if (!stats.pixels || risk === "blocked") return;
-    if (risk === "warning" && !window.confirm("选区覆盖率超过 10%，结果可能出现明显纹理问题。仍要继续吗？")) return;
+    if (risk === "warning" && !window.confirm(t.confirmWarning)) return;
     const mask = rasterizeMask(image.work.width, image.work.height, shapes);
     try {
       const nextResult = await imageWorker.repair(image, mask);
@@ -385,15 +387,15 @@ export default function ImageEditor({ image, onClear }: Props) {
   }
 
   return (
-    <section className="editor" aria-label="图片编辑器">
-      <div className="editor-toolbar" role="toolbar" aria-label="遮罩工具">
+    <section className="editor" aria-label={t.editorLabel}>
+      <div className="editor-toolbar" role="toolbar" aria-label={t.maskTools}>
         {(
           [
-            ["select", MousePointer2, "选择"],
-            ["rectangle", SquareDashed, "矩形选区"],
-            ["brush", Paintbrush, "添加画笔"],
-            ["eraser", Eraser, "橡皮擦"],
-            ["hand", Hand, "平移"],
+            ["select", MousePointer2, t.tools.select],
+            ["rectangle", SquareDashed, t.tools.rectangle],
+            ["brush", Paintbrush, t.tools.brush],
+            ["eraser", Eraser, t.tools.eraser],
+            ["hand", Hand, t.tools.hand],
           ] as const
         ).map(([value, Icon, label]) => (
           <button
@@ -410,22 +412,22 @@ export default function ImageEditor({ image, onClear }: Props) {
           </button>
         ))}
         <span className="toolbar-divider" aria-hidden="true" />
-        <button aria-label="适应窗口" className="icon-button" onClick={fitView} title="适应窗口" type="button">
+        <button aria-label={t.fit} className="icon-button" onClick={fitView} title={t.fit} type="button">
           <Maximize aria-hidden="true" size={19} />
         </button>
-        <button aria-label="撤销" className="icon-button" disabled={!history.past.length} onClick={undo} title="撤销" type="button">
+        <button aria-label={t.undo} className="icon-button" disabled={!history.past.length} onClick={undo} title={t.undo} type="button">
           <Undo2 aria-hidden="true" size={19} />
         </button>
-        <button aria-label="重做" className="icon-button" disabled={!history.future.length} onClick={redo} title="重做" type="button">
+        <button aria-label={t.redo} className="icon-button" disabled={!history.future.length} onClick={redo} title={t.redo} type="button">
           <Redo2 aria-hidden="true" size={19} />
         </button>
-        <button aria-label="删除选区" className="icon-button" disabled={!selectedId} onClick={deleteSelected} title="删除选区" type="button">
+        <button aria-label={t.deleteSelection} className="icon-button" disabled={!selectedId} onClick={deleteSelected} title={t.deleteSelection} type="button">
           <Trash2 aria-hidden="true" size={19} />
         </button>
         <label className="brush-control">
-          <span>笔刷 {brushSize}px</span>
+          <span>{t.brush} {brushSize}px</span>
           <input
-            aria-label="笔刷大小"
+            aria-label={t.brushSize}
             max="180"
             min="4"
             onChange={(event) => setBrushSize(Number(event.target.value))}
@@ -539,32 +541,32 @@ export default function ImageEditor({ image, onClear }: Props) {
           ) : null}
         </div>
 
-        <aside className="editor-inspector" aria-label="图片和遮罩信息">
+        <aside className="editor-inspector" aria-label={t.inspectorLabel}>
           <div className="inspector-section">
             <div className="section-heading">
-              <h2>当前图片</h2>
-              <button className="text-button" onClick={onClear} type="button">换一张</button>
+              <h2>{t.currentImage}</h2>
+              <button className="text-button" onClick={onClear} type="button">{t.changeImage}</button>
             </div>
             <dl>
-              <div><dt>输出尺寸</dt><dd>{image.work.width} × {image.work.height}</dd></div>
-              <div><dt>原始尺寸</dt><dd>{image.source.width} × {image.source.height}</dd></div>
-              <div><dt>透明度</dt><dd>{image.hasAlpha ? "保留 Alpha" : "无 Alpha"}</dd></div>
+              <div><dt>{t.outputSize}</dt><dd>{image.work.width} × {image.work.height}</dd></div>
+              <div><dt>{t.originalSize}</dt><dd>{image.source.width} × {image.source.height}</dd></div>
+              <div><dt>{t.transparency}</dt><dd>{image.hasAlpha ? t.alphaKept : t.noAlpha}</dd></div>
             </dl>
-            {image.downsampled ? <p className="info-message">为控制内存，最终输出将使用上方工作尺寸。</p> : null}
+            {image.downsampled ? <p className="info-message">{t.downsampled}</p> : null}
           </div>
 
           <div className="inspector-section">
             <div className="section-heading">
-              <h2>自动候选</h2>
+              <h2>{t.autoCandidates}</h2>
               <button className="text-button" disabled={imageWorker.status !== "idle"} onClick={() => void detect()} type="button">
                 <ScanSearch aria-hidden="true" size={15} />
-                查找
+                {t.find}
               </button>
             </div>
             {candidates.length ? (
               <>
                 <div className="candidate-actions">
-                  <span>{candidates.length} 个文字状候选</span>
+                  <span>{t.candidatesCount(candidates.length)}</span>
                   <button
                     className="text-button"
                     onClick={() => {
@@ -575,20 +577,20 @@ export default function ImageEditor({ image, onClear }: Props) {
                       setCandidates([]);
                     }}
                     type="button"
-                  >全部接受</button>
-                  <button className="text-button" onClick={() => setCandidates([])} type="button">忽略</button>
+                  >{t.acceptAll}</button>
+                  <button className="text-button" onClick={() => setCandidates([])} type="button">{t.ignore}</button>
                 </div>
                 <ul className="candidate-list">
                   {candidates.slice(0, 5).map((candidate, index) => (
                     <li key={candidate.id}>
-                      <span>候选 {index + 1}</span>
-                      <button aria-label={`接受候选 ${index + 1}`} onClick={() => acceptCandidate(candidate)} title="接受候选" type="button">
+                      <span>{t.candidate(index + 1)}</span>
+                      <button aria-label={t.acceptCandidate(index + 1)} onClick={() => acceptCandidate(candidate)} title={t.acceptCandidate(index + 1)} type="button">
                         <Check aria-hidden="true" size={15} />
                       </button>
                       <button
-                        aria-label={`删除候选 ${index + 1}`}
+                        aria-label={t.deleteCandidate(index + 1)}
                         onClick={() => setCandidates((current) => current.filter((item) => item.id !== candidate.id))}
-                        title="删除候选"
+                        title={t.deleteCandidate(index + 1)}
                         type="button"
                       >
                         <X aria-hidden="true" size={15} />
@@ -597,36 +599,36 @@ export default function ImageEditor({ image, onClear }: Props) {
                   ))}
                 </ul>
               </>
-            ) : <p className="candidate-message">{candidateMessage ?? "检测结果只作为候选，不代表版权归属结论。"}</p>}
+            ) : <p className="candidate-message">{candidateMessage ?? t.candidateHint}</p>}
           </div>
 
           <div className="inspector-section">
-            <h2>修复区域</h2>
+            <h2>{t.repairArea}</h2>
             <div className="coverage-row">
               <strong>{coveragePercent.toFixed(2)}%</strong>
-              <span>{stats.pixels.toLocaleString()} 像素</span>
+              <span>{stats.pixels.toLocaleString()} {t.pixels}</span>
             </div>
-            <div className="coverage-track" aria-label={`遮罩覆盖率 ${coveragePercent.toFixed(2)}%`}>
+            <div className="coverage-track" aria-label={t.coverageLabel(coveragePercent.toFixed(2))}>
               <span data-risk={risk} style={{ width: `${Math.min(100, coveragePercent * 4)}%` }} />
             </div>
-            {risk === "warning" ? <p className="warning-message">区域超过 10%，传统修复可能产生明显纹理问题。</p> : null}
-            {risk === "blocked" ? <p className="error-message">区域超过 25%，请缩小选区后再处理。</p> : null}
+            {risk === "warning" ? <p className="warning-message">{t.warningArea}</p> : null}
+            {risk === "blocked" ? <p className="error-message">{t.blockedArea}</p> : null}
           </div>
 
           {imageWorker.status !== "idle" && imageWorker.status !== "error" ? (
             <div className="task-status" aria-live="polite">
               <div className="coverage-row">
-                <strong>{{ detecting: "正在查找候选", loading: "正在加载 OpenCV", initializing: "正在初始化", processing: "正在修复" }[imageWorker.status]}</strong>
+                <strong>{t.status[imageWorker.status]}</strong>
                 <span>{Math.round(imageWorker.progress * 100)}%</span>
               </div>
               <progress max="1" value={imageWorker.progress} />
-              <button className="text-button" onClick={imageWorker.cancel} type="button">取消任务</button>
+              <button className="text-button" onClick={imageWorker.cancel} type="button">{t.cancelTask}</button>
             </div>
           ) : null}
           {imageWorker.error ? (
             <div className="worker-error" role="alert">
               <p className="error-message">{imageWorker.error}</p>
-              <button className="secondary-action" onClick={imageWorker.recover} type="button">恢复 Worker</button>
+              <button className="secondary-action" onClick={imageWorker.recover} type="button">{t.recoverWorker}</button>
             </div>
           ) : null}
 
@@ -637,11 +639,11 @@ export default function ImageEditor({ image, onClear }: Props) {
             type="button"
           >
             <Sparkles aria-hidden="true" size={18} />
-            修复区域
+            {t.repair}
           </button>
           <button className="secondary-action" onClick={() => setHistory(createHistory([]))} disabled={!shapes.length} type="button">
             <RotateCcw aria-hidden="true" size={18} />
-            清空遮罩
+            {t.clearMask}
           </button>
         </aside>
       </div>

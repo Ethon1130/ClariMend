@@ -1,8 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Camera, ImagePlus, LockKeyhole, ShieldCheck } from "lucide-react";
+import { Camera, ImagePlus, Languages, LockKeyhole, Moon, ShieldCheck, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { AppPreferencesProvider, useAppPreferences } from "@/components/app-preferences";
 import { decodeImageFile, releaseDecodedImage, type DecodedImage } from "@/lib/decode-image";
 import { chooseWorkPixelLimit } from "@/lib/image-sizes";
 import { ImageValidationError, validateImageFile } from "@/lib/image-validation";
@@ -14,7 +15,8 @@ const ImageEditor = dynamic(() => import("./image-editor"), {
 
 type NavigatorWithMemory = Navigator & { deviceMemory?: number };
 
-export default function EditorShell() {
+function EditorShellInner() {
+  const { language, theme, t, toggleLanguage, toggleTheme } = useAppPreferences();
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
   const [authorized, setAuthorized] = useState(false);
@@ -53,9 +55,9 @@ export default function EditorShell() {
         return decoded;
       });
     } catch (reason) {
-      if (reason instanceof ImageValidationError) setError(reason.message);
-      else if (reason instanceof DOMException && reason.name === "EncodingError") setError("图片解码失败，文件可能已损坏。");
-      else setError("无法打开图片。设备内存不足时，请选择尺寸更小的文件后重试。");
+      if (reason instanceof ImageValidationError) setError(t.validation[reason.code]);
+      else if (reason instanceof DOMException && reason.name === "EncodingError") setError(t.decodeFailed);
+      else setError(t.openFailed);
     } finally {
       setBusy(false);
     }
@@ -64,11 +66,42 @@ export default function EditorShell() {
   return (
     <main className="app-shell">
       <header className="app-header">
-        <div>
-          <p className="product-context">本地处理 · 单图编辑</p>
-          <h1>授权图片区域修复</h1>
+        <div className="brand-lockup">
+          <svg aria-hidden="true" className="brand-mark" viewBox="0 0 32 32">
+            <rect width="32" height="32" rx="7" fill="#16786f" />
+            <path
+              d="M17 4h7a4 4 0 0 1 4 4v16a4 4 0 0 1-4 4h-7l-2-3 2-3-2-3 2-3-2-3 2-3-2-3 2-3Z"
+              fill="#183234"
+            />
+            <path
+              d="M9 14v-4h5M23 18v4h-5M9 22l5-6 3 3 2-2 4 5"
+              fill="none"
+              stroke="#fff"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+            />
+          </svg>
+          <div className="brand-copy">
+            <h1 aria-label={`澄迹 ClariMend — ${t.title}`} className="brand-name">
+              <span className="brand-zh">澄迹</span>
+              <span className="brand-en" lang="en">ClariMend</span>
+            </h1>
+            <p className="product-context">{t.localContext}</p>
+          </div>
         </div>
-        <span className="privacy-status"><LockKeyhole aria-hidden="true" size={16} /> 图片不上传</span>
+        <div className="header-actions">
+          <span className="privacy-status"><LockKeyhole aria-hidden="true" size={16} /> {t.private}</span>
+          <button className="preference-button" onClick={toggleTheme} type="button">
+            {theme === "light" ? <Sun aria-hidden="true" size={16} /> : <Moon aria-hidden="true" size={16} />}
+            {theme === "light" ? t.themeLight : t.themeDark}
+          </button>
+          <button className="preference-button" onClick={toggleLanguage} type="button">
+            <Languages aria-hidden="true" size={16} />
+            {language === "zh" ? "中文" : "English"}
+            <span className="visually-hidden">{t.languageToggle}</span>
+          </button>
+        </div>
       </header>
 
       {!image ? (
@@ -76,11 +109,8 @@ export default function EditorShell() {
           <section className="consent" aria-labelledby="consent-title">
             <ShieldCheck aria-hidden="true" className="consent-icon" size={28} />
             <div>
-              <h2 id="consent-title">开始前请确认授权</h2>
-              <p>
-                仅处理您拥有版权或已取得明确修改授权的图片。禁止移除他人版权标识、平台保护标记、素材站预览标记，
-                或利用本工具规避付费、许可和访问限制。系统无法通过技术手段判断真实版权归属。
-              </p>
+              <h2 id="consent-title">{t.consentTitle}</h2>
+              <p>{t.consentBody}</p>
             </div>
             <label className="consent-check">
               <input
@@ -91,13 +121,13 @@ export default function EditorShell() {
                 }}
                 type="checkbox"
               />
-              <span>我确认符合上述授权要求</span>
+              <span>{t.consentCheck}</span>
             </label>
           </section>
 
           <section
             aria-describedby={error ? "file-error" : "file-help"}
-            aria-label="选择图片"
+            aria-label={t.chooseImageLabel}
             className="upload-zone"
             data-disabled={!authorized}
             data-dragging={dragging}
@@ -117,8 +147,8 @@ export default function EditorShell() {
           >
             <ImagePlus aria-hidden="true" size={34} />
             <div>
-              <h2>{authorized ? "选择一张需要处理的图片" : "确认授权后选择图片"}</h2>
-              <p id="file-help">JPEG、PNG 或 WebP，最大 10 MB、1200 万像素。图片仅保存在当前页面内存中。</p>
+              <h2>{authorized ? t.uploadReady : t.uploadLocked}</h2>
+              <p id="file-help">{t.fileHelp}</p>
             </div>
             <div className="upload-actions">
               <button
@@ -128,7 +158,7 @@ export default function EditorShell() {
                 type="button"
               >
                 <ImagePlus aria-hidden="true" size={18} />
-                {busy ? "正在检查..." : "选择图片"}
+                {busy ? t.checking : t.chooseImageLabel}
               </button>
               <button
                 className="secondary-action"
@@ -137,7 +167,7 @@ export default function EditorShell() {
                 type="button"
               >
                 <Camera aria-hidden="true" size={18} />
-                拍照
+                {t.takePhoto}
               </button>
             </div>
             <input
@@ -165,10 +195,18 @@ export default function EditorShell() {
       )}
 
       <footer>
-        <a href="/terms">服务条款</a>
-        <a href="/privacy">隐私说明</a>
-        <a href="/complaints">投诉与下架</a>
+        <a href="/terms">{t.terms}</a>
+        <a href="/privacy">{t.privacy}</a>
+        <a href="/complaints">{t.complaints}</a>
       </footer>
     </main>
+  );
+}
+
+export default function EditorShell() {
+  return (
+    <AppPreferencesProvider>
+      <EditorShellInner />
+    </AppPreferencesProvider>
   );
 }

@@ -2,6 +2,7 @@
 
 import { ArrowLeft, Download } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useAppPreferences } from "@/components/app-preferences";
 import type { DecodedImage } from "@/lib/decode-image";
 import { rasterizeMask, type MaskShape } from "@/lib/mask";
 
@@ -16,13 +17,14 @@ type Props = {
   onDownloaded: () => void;
 };
 
-function outputName(fileName: string, format: Format) {
+function outputName(fileName: string, format: Format, suffix: string) {
   const stem = fileName.replace(/\.[^.]+$/, "");
   const extension = format === "image/jpeg" ? "jpg" : format === "image/png" ? "png" : "webp";
-  return `${stem}-修复结果.${extension}`;
+  return `${stem}-${suffix}.${extension}`;
 }
 
 export default function ResultView({ image, result, shapes, onEdit, onDownloaded }: Props) {
+  const { t } = useAppPreferences();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mode, setMode] = useState<Mode>("compare");
   const [split, setSplit] = useState(50);
@@ -90,7 +92,7 @@ export default function ResultView({ image, result, shapes, onEdit, onDownloaded
     exportCanvas.width = image.work.width;
     exportCanvas.height = image.work.height;
     const context = exportCanvas.getContext("2d");
-    if (!context) return setMessage("浏览器无法创建导出画布。");
+    if (!context) return setMessage(t.canvasUnavailable);
     if (format === "image/jpeg" && image.hasAlpha) {
       context.fillStyle = "white";
       context.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
@@ -100,15 +102,15 @@ export default function ResultView({ image, result, shapes, onEdit, onDownloaded
       (blob) => {
         exportCanvas.width = 0;
         exportCanvas.height = 0;
-        if (!blob) return setMessage("当前浏览器不支持所选编码格式。");
+        if (!blob) return setMessage(t.unsupportedEncoding);
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement("a");
         anchor.href = url;
-        anchor.download = outputName(image.fileName, format);
+        anchor.download = outputName(image.fileName, format, t.repairedSuffix);
         anchor.click();
         setTimeout(() => URL.revokeObjectURL(url), 0);
         onDownloaded();
-        setMessage("下载已开始。");
+        setMessage(t.downloadStarted);
       },
       format,
       format === "image/png" ? undefined : quality,
@@ -116,16 +118,16 @@ export default function ResultView({ image, result, shapes, onEdit, onDownloaded
   };
 
   return (
-    <section className="result-view" aria-label="修复结果">
+    <section className="result-view" aria-label={t.resultLabel}>
       <div className="result-toolbar">
         <button className="secondary-action" onClick={onEdit} type="button">
           <ArrowLeft aria-hidden="true" size={18} />
-          重新编辑
+          {t.editAgain}
         </button>
-        <div className="segmented-control" aria-label="结果显示方式">
+        <div className="segmented-control" aria-label={t.resultModeLabel}>
           {(["compare", "result", "original", "mask"] as const).map((value) => (
             <button aria-pressed={mode === value} key={value} onClick={() => setMode(value)} type="button">
-              {{ compare: "对比", result: "结果", original: "原图", mask: "遮罩" }[value]}
+              {t.modes[value]}
             </button>
           ))}
         </div>
@@ -136,16 +138,16 @@ export default function ResultView({ image, result, shapes, onEdit, onDownloaded
           <canvas ref={canvasRef} />
           {mode === "compare" ? (
             <label className="compare-slider">
-              <span className="visually-hidden">原图与结果分界</span>
+              <span className="visually-hidden">{t.compareBoundary}</span>
               <input max="100" min="0" onChange={(event) => setSplit(Number(event.target.value))} type="range" value={split} />
             </label>
           ) : null}
         </div>
 
         <aside className="export-panel">
-          <h2>下载结果</h2>
+          <h2>{t.downloadResult}</h2>
           <label>
-            <span>格式</span>
+            <span>{t.format}</span>
             <select onChange={(event) => setFormat(event.target.value as Format)} value={format}>
               <option value="image/jpeg">JPEG</option>
               <option value="image/png">PNG</option>
@@ -154,16 +156,16 @@ export default function ResultView({ image, result, shapes, onEdit, onDownloaded
           </label>
           {format !== "image/png" ? (
             <label>
-              <span>质量 {quality.toFixed(2)}</span>
+              <span>{t.quality} {quality.toFixed(2)}</span>
               <input max="1" min="0.5" onChange={(event) => setQuality(Number(event.target.value))} step="0.01" type="range" value={quality} />
             </label>
           ) : null}
           {format === "image/jpeg" && image.hasAlpha ? (
-            <p className="warning-message">JPEG 不支持透明度，导出时透明区域将明确展平为白色。选择 PNG 或 WebP 可保留 Alpha。</p>
+            <p className="warning-message">{t.jpegAlphaWarning}</p>
           ) : null}
           <button className="primary-action" onClick={download} type="button">
             <Download aria-hidden="true" size={18} />
-            下载
+            {t.download}
           </button>
           {message ? <p aria-live="polite" className="download-message">{message}</p> : null}
         </aside>

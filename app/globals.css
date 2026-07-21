@@ -15,6 +15,22 @@
   --toolbar-height: 58px;
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.18 0.012 220);
+  --surface: oklch(0.23 0.014 220);
+  --surface-strong: oklch(0.29 0.016 220);
+  --ink: oklch(0.92 0.006 220);
+  --muted: oklch(0.73 0.014 220);
+  --border: oklch(0.38 0.018 220);
+  --primary: oklch(0.68 0.105 184);
+  --primary-hover: oklch(0.76 0.095 184);
+  --accent: oklch(0.73 0.095 184);
+  --danger: oklch(0.68 0.18 28);
+  --warning: oklch(0.78 0.14 73);
+  --focus: oklch(0.74 0.15 250);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -86,6 +102,7 @@ h2 {
 }
 
 .app-header,
+.brand-lockup,
 .consent,
 .consent-check,
 .privacy-status,
@@ -108,8 +125,75 @@ footer {
   border-bottom: 1px solid var(--border);
 }
 
+.brand-lockup {
+  min-width: 0;
+  gap: 12px;
+}
+
+.brand-mark {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+}
+
+.brand-copy {
+  min-width: 0;
+}
+
+.brand-name {
+  display: flex;
+  margin: 0;
+  align-items: baseline;
+  gap: 10px;
+  line-height: 1;
+}
+
+.brand-zh {
+  font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 1.55rem;
+  font-weight: 800;
+}
+
+.brand-en {
+  color: var(--accent);
+  font-family: "Aptos Display", "Segoe UI Variable Display", "Segoe UI", sans-serif;
+  font-size: 1.05rem;
+  font-weight: 750;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.preference-button {
+  display: inline-flex;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--background);
+  color: var(--ink);
+  align-items: center;
+  gap: 7px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: background 160ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms cubic-bezier(0.22, 1, 0.36, 1), transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.preference-button:hover {
+  background: var(--surface-strong);
+}
+
+.preference-button:active {
+  transform: translateY(1px);
+}
+
 .product-context {
-  margin-bottom: 4px;
+  margin: 5px 0 0;
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 650;
@@ -180,6 +264,10 @@ footer {
 .upload-zone[data-dragging="true"] {
   border-color: var(--primary);
   background: oklch(0.965 0.025 184);
+}
+
+:root[data-theme="dark"] .upload-zone[data-dragging="true"] {
+  background: oklch(0.26 0.035 184);
 }
 
 .upload-zone[data-disabled="true"] {
@@ -316,6 +404,11 @@ footer {
   color: var(--primary-hover);
 }
 
+:root[data-theme="dark"] .icon-button[data-active="true"] {
+  background: oklch(0.31 0.045 184);
+  color: var(--primary-hover);
+}
+
 .toolbar-divider {
   width: 1px;
   height: 28px;
@@ -356,6 +449,14 @@ footer {
   background-position: 0 0, 0 8px, 8px -8px, -8px 0;
   background-size: 16px 16px;
   touch-action: none;
+}
+
+:root[data-theme="dark"] .canvas-viewport {
+  background-color: oklch(0.32 0 0);
+  background-image: linear-gradient(45deg, oklch(0.25 0 0) 25%, transparent 25%),
+    linear-gradient(-45deg, oklch(0.25 0 0) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, oklch(0.25 0 0) 75%),
+    linear-gradient(-45deg, transparent 75%, oklch(0.25 0 0) 75%);
 }
 
 .editor-inspector {
@@ -801,6 +902,34 @@ footer a {
 }
 
 @media (max-width: 560px) {
+  .app-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .brand-mark {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+  }
+
+  .brand-name {
+    gap: 8px;
+  }
+
+  .brand-zh {
+    font-size: 1.35rem;
+  }
+
+  .brand-en {
+    font-size: 0.92rem;
+  }
+
   .privacy-status {
     font-size: 0;
   }
